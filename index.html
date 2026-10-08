@@ -1281,12 +1281,10 @@ audio{display:none;}
       <button class="wish-send-btn" id="sendWishBtn" type="button">🏮 Release Lantern</button>
     </form>
     
-    <!-- Starry Wall of Submitted Wishes -->
-    <div class="wish-wall" id="wishWall">
-      <div class="wish-star-card">
-        <span class="star-icon">🌟</span>
-        <span>“Health, radiant happiness, love &amp; big dreams fulfilled!” — <i>Wish of the Stars</i></span>
-      </div>
+    <!-- Private Security Badge (Wishes are kept strictly secret) -->
+    <div class="wish-privacy-badge" style="margin-top:22px;display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.9);border:1px solid #ffd1dc;border-radius:24px;padding:8px 18px;font-size:13px;color:#7a4a5c;box-shadow:0 4px 12px rgba(189,63,108,.08);">
+      <span>🔒</span>
+      <span><b>Strictly Private &amp; Confidential:</b> Your secret wish is sealed with cosmic starlight and never shown publicly! 🤫✨</span>
     </div>
   </section>
 
@@ -1439,10 +1437,44 @@ audio{display:none;}
   <button class="dock-btn" onclick="scrollToId('wishSection')">🏮 Wish</button>
   <button class="dock-btn hide-mobile" onclick="scrollToId('messageSection')">💌 Letter</button>
   <button class="dock-btn heart-blast" id="showerLoveBtn">💖 Shower Love</button>
+  <button class="dock-btn" id="openVaultBtn" title="Secret Wish Vault (Passcode Protected)">🔒</button>
 </nav>
 
 <!-- FLOATING MUSIC TOGGLE BUTTON -->
 <button class="sound-btn" id="soundBtn" type="button" aria-label="Toggle music">🔇</button>
+
+<!-- 4. SECRET WISH VAULT (PASSCODE AUTH MODAL) -->
+<div class="modal-overlay" id="vaultAuthModal" role="dialog" aria-modal="true" aria-label="Secret Vault Lock">
+  <div class="wish-modal-card">
+    <button class="modal-close-btn" id="closeVaultAuthBtn" aria-label="Close">✕</button>
+    <div style="font-size:46px;margin-bottom:8px;">🔐</div>
+    <h3 class="modal-heading">Secret Wish Vault</h3>
+    <p class="modal-sub">Enter the secret passcode to view Seema's private wishes:</p>
+    <input type="password" class="secret-wish-input" id="vaultPasscodeInput" placeholder="Enter Secret Passcode..." autocomplete="off">
+    <p id="vaultAuthError" style="color:#d32f2f;font-size:13px;display:none;margin-bottom:12px;font-weight:700;">❌ Incorrect passcode! Try again.</p>
+    <button class="blow-action-btn" id="unlockVaultBtn" type="button">
+      <span>🔓 Unlock Vault</span>
+    </button>
+  </div>
+</div>
+
+<!-- 5. SECRET WISH VAULT (DISPLAY LIST MODAL) -->
+<div class="modal-overlay" id="vaultDisplayModal" role="dialog" aria-modal="true" aria-label="Seema's Wishes Vault">
+  <div class="wish-modal-card" style="max-width:580px;text-align:left;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #ffd1dc;padding-bottom:10px;">
+      <h3 class="modal-heading" style="font-size:2rem;margin:0;">👑 Seema's Secret Wishes</h3>
+      <button class="modal-close-btn" id="closeVaultDisplayBtn" style="position:static;">✕</button>
+    </div>
+    <p style="font-size:13px;color:#7a4a5c;margin-bottom:14px;">Here are all the private birthday wishes Seema has entered on this website:</p>
+    <div id="vaultWishesList" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:4px;">
+      <!-- Dynamic wish cards loaded here -->
+    </div>
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;border-top:1px solid #ffd1dc;padding-top:12px;">
+      <button class="action-btn" id="refreshVaultBtn" type="button" style="font-size:13px;padding:9px 16px;">🔄 Refresh Wishes</button>
+      <button class="action-btn secondary" id="clearVaultBtn" type="button" style="font-size:13px;padding:9px 16px;background:#e57373;">🗑️ Clear Wishes</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -1911,10 +1943,10 @@ audio{display:none;}
     playCelestialSound();
     alignBalloons();
 
-    // Capture secret wish if entered
+    // Capture secret wish privately
     var typedWish = $('secretWishInput').value.trim();
     if (typedWish){
-      addWishToWall(typedWish);
+      savePrivateWish(typedWish, 'Birthday Candle');
     }
 
     // Update modal with celebration & Next Step: Cut Cake!
@@ -2006,11 +2038,43 @@ audio{display:none;}
   var celestialScrollCard = $('celestialScrollCard');
   var shootingStar = $('shootingStar');
 
-  function addWishToWall(wishText){
-    var card = document.createElement('div');
-    card.className = 'wish-star-card';
-    card.innerHTML = '<span class="star-icon">🌟</span><span>“' + wishText + '” — <i>Seema’s Star Wish ✨</i></span>';
-    $('wishWall').prepend(card);
+  /* Private cross-device wish storage */
+  var KV_APP_KEY = 'c3bdwmi9';
+  var KV_KEY = 'seema_wishes';
+
+  function savePrivateWish(wishText, sourceName){
+    if (!wishText || !wishText.trim()) return;
+    var cleanWish = wishText.trim();
+    var newEntry = {
+      id: 'w_' + Date.now(),
+      wish: cleanWish,
+      source: sourceName || 'Birthday Wish',
+      time: new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', hour12:true})
+    };
+
+    // 1. Cache locally
+    try {
+      var localWishes = JSON.parse(localStorage.getItem('seema_private_wishes') || '[]');
+      localWishes.unshift(newEntry);
+      localStorage.setItem('seema_private_wishes', JSON.stringify(localWishes));
+    } catch(e){}
+
+    // 2. Sync to secure cloud store
+    fetch('https://keyvalue.immanuel.co/api/KeyVal/GetValue/' + KV_APP_KEY + '/' + KV_KEY)
+      .then(function(res){ return res.text(); })
+      .then(function(raw){
+        var list = [];
+        try {
+          if (raw && raw !== 'Not Found'){
+            var jsonStr = decodeURIComponent(escape(atob(raw.trim())));
+            list = JSON.parse(jsonStr);
+          }
+        } catch(e){}
+        list.unshift(newEntry);
+        var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(list))));
+        return fetch('https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/' + KV_APP_KEY + '/' + KV_KEY + '/' + encodeURIComponent(encoded), { method: 'POST' });
+      })
+      .catch(function(err){ console.warn('Wish sync:', err); });
   }
 
   function launchWishToStars(wishText){
@@ -2028,8 +2092,8 @@ audio{display:none;}
     celestialWishModal.classList.add('open');
     $('wishInput').value = '';
 
-    // Save wish to page wall
-    addWishToWall(wish);
+    // Save wish strictly privately!
+    savePrivateWish(wish, 'Sky Lantern');
 
     // Launch lantern into sky
     setTimeout(function(){
@@ -2054,6 +2118,133 @@ audio{display:none;}
   $('closeCelestialModalBtn').addEventListener('click', function(){
     celestialWishModal.classList.remove('open');
     scrollToId('wishSection');
+  });
+
+  /* ================= 4. SECRET WISH VAULT (ADMIN / PASSCODE) ================= */
+  var vaultAuthModal = $('vaultAuthModal');
+  var vaultDisplayModal = $('vaultDisplayModal');
+  var vaultPasscodeInput = $('vaultPasscodeInput');
+  var vaultAuthError = $('vaultAuthError');
+  var VALID_PASSCODES = ['seema2026', 'seema', '1234'];
+
+  function escapeHtml(str){
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function openVaultAuthModal(){
+    vaultAuthError.style.display = 'none';
+    vaultPasscodeInput.value = '';
+    vaultAuthModal.classList.add('open');
+    setTimeout(function(){ vaultPasscodeInput.focus(); }, 200);
+  }
+
+  function closeVaultAuthModal(){
+    vaultAuthModal.classList.remove('open');
+  }
+
+  function checkVaultPasscode(){
+    var entered = (vaultPasscodeInput.value || '').trim().toLowerCase();
+    if (VALID_PASSCODES.indexOf(entered) !== -1){
+      vaultAuthError.style.display = 'none';
+      closeVaultAuthModal();
+      openVaultDisplayModal();
+    } else {
+      vaultAuthError.style.display = 'block';
+      vaultPasscodeInput.select();
+    }
+  }
+
+  function openVaultDisplayModal(){
+    vaultDisplayModal.classList.add('open');
+    loadVaultWishes();
+  }
+
+  function closeVaultDisplayModal(){
+    vaultDisplayModal.classList.remove('open');
+  }
+
+  function renderVaultWishes(wishes){
+    var listEl = $('vaultWishesList');
+    if (!wishes || wishes.length === 0){
+      listEl.innerHTML = '<div style="text-align:center;padding:26px 14px;color:#9e687e;background:#fff8fa;border-radius:12px;border:1px dashed #ffd1dc;"><div style="font-size:32px;margin-bottom:6px;">💌</div><b>No wishes submitted yet!</b><br><span style="font-size:12px;">Whenever Seema types a wish in the Sky Lantern or Candle, it will appear here privately!</span></div>';
+      return;
+    }
+
+    var html = '';
+    wishes.forEach(function(item){
+      html += '<div style="background:#fff;border:1px solid #ffd1dc;border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(189,63,108,.08);">'
+           +  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+           +    '<span style="background:#ffe0ec;color:#bd3f6c;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;">' + (item.source || 'Birthday Wish') + '</span>'
+           +    '<span style="font-size:11px;color:#9e687e;">' + (item.time || '') + '</span>'
+           +  '</div>'
+           +  '<div style="font-family:\'Playfair Display\',serif;font-style:italic;font-size:1.15rem;color:#4a2b37;margin:8px 0;line-height:1.5;">“' + escapeHtml(item.wish) + '”</div>'
+           + '</div>';
+    });
+    listEl.innerHTML = html;
+  }
+
+  function loadVaultWishes(){
+    var listEl = $('vaultWishesList');
+    listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#a8536f;">⏳ Loading Seema\'s wishes from the cloud...</div>';
+
+    fetch('https://keyvalue.immanuel.co/api/KeyVal/GetValue/' + KV_APP_KEY + '/' + KV_KEY)
+      .then(function(res){ return res.text(); })
+      .then(function(raw){
+        var wishes = [];
+        try {
+          if (raw && raw !== 'Not Found'){
+            var jsonStr = decodeURIComponent(escape(atob(raw.trim())));
+            wishes = JSON.parse(jsonStr);
+          }
+        } catch(e){}
+
+        if (wishes.length === 0){
+          try { wishes = JSON.parse(localStorage.getItem('seema_private_wishes') || '[]'); } catch(e){}
+        }
+        renderVaultWishes(wishes);
+      })
+      .catch(function(){
+        var localWishes = [];
+        try { localWishes = JSON.parse(localStorage.getItem('seema_private_wishes') || '[]'); } catch(e){}
+        renderVaultWishes(localWishes);
+      });
+  }
+
+  function clearAllVaultWishes(){
+    if (!confirm("Are you sure you want to clear all wishes from the vault?")) return;
+    try { localStorage.removeItem('seema_private_wishes'); } catch(e){}
+    var emptyEncoded = btoa(unescape(encodeURIComponent(JSON.stringify([]))));
+    fetch('https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/' + KV_APP_KEY + '/' + KV_KEY + '/' + encodeURIComponent(emptyEncoded), { method: 'POST' })
+      .then(function(){
+        loadVaultWishes();
+      });
+  }
+
+  $('openVaultBtn').addEventListener('click', openVaultAuthModal);
+  $('closeVaultAuthBtn').addEventListener('click', closeVaultAuthModal);
+  $('unlockVaultBtn').addEventListener('click', checkVaultPasscode);
+  vaultPasscodeInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') checkVaultPasscode();
+  });
+
+  $('closeVaultDisplayBtn').addEventListener('click', closeVaultDisplayModal);
+  $('refreshVaultBtn').addEventListener('click', loadVaultWishes);
+  $('clearVaultBtn').addEventListener('click', clearAllVaultWishes);
+
+  // Check if URL has ?vault or ?admin
+  if (window.location.search.indexOf('vault') !== -1 || window.location.search.indexOf('admin') !== -1){
+    setTimeout(openVaultAuthModal, 600);
+  }
+
+  // Double-tap or 3-click on top gift or title triggers vault
+  var giftClicks = 0;
+  $('giftWrapper').addEventListener('click', function(){
+    giftClicks++;
+    if (giftClicks >= 4){
+      giftClicks = 0;
+      openVaultAuthModal();
+    }
   });
 
   /* ================= GALLERY REVEAL ================= */
