@@ -336,6 +336,35 @@ audio{display:none;}
   -webkit-background-clip:text;background-clip:text;
   -webkit-text-fill-color:transparent;
 }
+.secret-bow-trigger{
+  display:inline-block;
+  cursor:pointer;
+  -webkit-text-fill-color:initial !important;
+  color:#ff2d78 !important;
+  background:none !important;
+  -webkit-background-clip:border-box !important;
+  background-clip:border-box !important;
+  font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+  font-size:.85em;
+  vertical-align:middle;
+  padding:4px 8px;
+  margin-left:4px;
+  border-radius:18px;
+  user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1), filter .25s ease;
+  animation:bowFloat 3s ease-in-out infinite alternate;
+}
+@keyframes bowFloat{
+  0%{transform:translateY(0) scale(1) rotate(0deg);}
+  50%{transform:translateY(-4px) scale(1.1) rotate(-8deg);}
+  100%{transform:translateY(0) scale(1) rotate(8deg);}
+}
+.secret-bow-trigger:hover,
+.secret-bow-trigger:active{
+  transform:scale(1.35) rotate(14deg) !important;
+  filter:drop-shadow(0 0 12px rgba(255,105,180,.9));
+}
 .birthday-sub{
   font-size:clamp(1.05rem,2.8vw,1.35rem);
   color:#765660;margin-top:8px;font-weight:500;letter-spacing:.04em;
@@ -1083,7 +1112,7 @@ audio{display:none;}
     <p class="intro-subtitle">A sweet birthday surprise made with endless love &amp; memories, just for you! 💖</p>
     
     <div class="gift-wrapper" id="giftWrapper" title="Click to open your surprise!">
-      <div class="gift-bow">🎀</div>
+      <div class="gift-bow" id="introGiftBow" title="🎀 Secret Vault Trigger">🎀</div>
       <div class="gift-box">
         <div class="gift-ribbon-v"></div>
         <div class="gift-ribbon-h"></div>
@@ -2263,17 +2292,26 @@ audio{display:none;}
     secretBowEl.addEventListener('touchend', handleBowTap);
   }
 
-  // Also listen on the opening gift box if tapped on the intro screen
-  var giftClicks = 0;
-  var giftWrapperEl = $('giftWrapper');
-  if (giftWrapperEl){
-    giftWrapperEl.addEventListener('click', function(){
-      giftClicks++;
-      if (giftClicks >= 3){
-        giftClicks = 0;
+  // Also listen on the intro gift box bow if tapped on the intro screen
+  var introBowEl = $('introGiftBow');
+  var introBowClicks = 0;
+  var introBowTimer = null;
+  if (introBowEl){
+    function handleIntroBowTap(e){
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (e && e.preventDefault && e.type === 'touchend') e.preventDefault();
+      introBowClicks++;
+      introBowEl.style.transform = 'translateX(-50%) scale(1.4) rotate(' + (introBowClicks % 2 === 0 ? '-22deg' : '22deg') + ')';
+      setTimeout(function(){ introBowEl.style.transform = 'translateX(-50%) scale(1) rotate(0deg)'; }, 220);
+      clearTimeout(introBowTimer);
+      introBowTimer = setTimeout(function(){ introBowClicks = 0; }, 2200);
+      if (introBowClicks >= 3){
+        introBowClicks = 0;
         openVaultAuthModal();
       }
-    });
+    }
+    introBowEl.addEventListener('click', handleIntroBowTap);
+    introBowEl.addEventListener('touchend', handleIntroBowTap);
   }
 
   /* ================= GALLERY REVEAL ================= */
