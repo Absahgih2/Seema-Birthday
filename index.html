@@ -1134,7 +1134,7 @@ audio{display:none;}
 
   <!-- HERO GREETING -->
   <header class="hero-header">
-    <h1 class="birthday-title">Happy Birthday <span class="name-highlight">Seema</span> 🎀</h1>
+    <h1 class="birthday-title">Happy Birthday <span class="name-highlight">Seema</span> <span class="secret-bow-trigger" id="secretBowTrigger" title="🎀" style="cursor:pointer;display:inline-block;transition:transform .2s ease;user-select:none;">🎀</span></h1>
     <p class="birthday-sub">May your special day be filled with endless joy, magic &amp; warm smiles</p>
   </header>
 
@@ -2237,15 +2237,44 @@ audio{display:none;}
     setTimeout(openVaultAuthModal, 600);
   }
 
-  // Double-tap or 3-click on top gift or title triggers vault
-  var giftClicks = 0;
-  $('giftWrapper').addEventListener('click', function(){
-    giftClicks++;
-    if (giftClicks >= 4){
-      giftClicks = 0;
+  // Secret Bow tap handler (in the main heading "Happy Birthday Seema 🎀")
+  var bowTaps = 0;
+  var bowResetTimer = null;
+  function handleBowTap(e){
+    if (e && e.preventDefault && e.type === 'touchend') e.preventDefault();
+    bowTaps++;
+    var bowEl = $('secretBowTrigger');
+    if (bowEl){
+      bowEl.style.transform = 'scale(1.35) rotate(' + (bowTaps % 2 === 0 ? '-18deg' : '18deg') + ')';
+      setTimeout(function(){ bowEl.style.transform = 'scale(1) rotate(0deg)'; }, 220);
+    }
+    clearTimeout(bowResetTimer);
+    bowResetTimer = setTimeout(function(){ bowTaps = 0; }, 2200);
+
+    if (bowTaps >= 3){
+      bowTaps = 0;
       openVaultAuthModal();
     }
-  });
+  }
+
+  var secretBowEl = $('secretBowTrigger');
+  if (secretBowEl){
+    secretBowEl.addEventListener('click', handleBowTap);
+    secretBowEl.addEventListener('touchend', handleBowTap);
+  }
+
+  // Also listen on the opening gift box if tapped on the intro screen
+  var giftClicks = 0;
+  var giftWrapperEl = $('giftWrapper');
+  if (giftWrapperEl){
+    giftWrapperEl.addEventListener('click', function(){
+      giftClicks++;
+      if (giftClicks >= 3){
+        giftClicks = 0;
+        openVaultAuthModal();
+      }
+    });
+  }
 
   /* ================= GALLERY REVEAL ================= */
   function revealGallery(){
